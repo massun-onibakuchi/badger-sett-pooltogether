@@ -15,9 +15,9 @@ contract BadgerYieldSource is IYieldSource {
     ISett public immutable sett;
 
     /// @dev ref to WrappedETH9 contract.
-    IERC20 public immutable Ibadger;
+    IERC20 public immutable badger;
 
-    ///@dev ibETH token balances
+    ///@dev bBadger token balances
     mapping(address => uint256) private balances;
 
     constructor(ISett _sett, IERC20 _badger) {
@@ -30,7 +30,7 @@ contract BadgerYieldSource is IYieldSource {
     }
 
     function depositToken() external view override returns (address) {
-        return address(Ibadger);
+        return address(badger);
     }
 
     /// @notice Returns the total balance (in asset tokens).  This includes the deposits and interest.
@@ -41,29 +41,31 @@ contract BadgerYieldSource is IYieldSource {
         if (total == 0) {
             return 0;
         }
-        // console.log("addr's ibETH balance", balances[addr]);
-        // ratio = shares / totalShares
-        // ratio * totalETH
-        uint256 ethBalance = shares.mul(bank.totalETH()).div(total);
+        uint256 ethBalance = shares.mul(bank.totalETH()).div(total); // badger balance of this contract
         // ethBalance * addr's Shares / totalShares
         return balances[addr].mul(ethBalance).div(total);
+
+        // console.log("addr's ibETH balance", balances[addr]);
+        // price = underlyingToken / totalShares
+        uint256 badgerBalance = shares.mul(sett.getPricePerFullShare()); // badger balance of this contract
+        // badgerBalance * addr's Shares / totalShares
+        return balances[addr].mul(badgerBalance).div(sett.totalSupply());
     }
 
     /// @notice Supplies asset tokens to the yield source.
     /// @param amount The amount of asset tokens to be supplied (ie. WETH amount)
     function supplyTokenTo(uint256 amount, address to) external override {
-        // receive WETH and withdraw ETH
-        WETH.transferFrom(msg.sender, address(this), amount);
-        WETH.withdraw(amount);
+        badger.transferFrom(msg.sender, address(this), amount);
+        badger.approve(sett, amount);
 
-        // ibETH balance before
-        uint256 balanceBefore = bank.balanceOf(address(this));
+        // bBadger balance before
+        uint256 balanceBefore = sett.balanceOf(address(this));
 
-        // Deposit ETH and receive ibETH
-        bank.deposit{ value: address(this).balance }();
+        // Deposit badger and receive bBadger
+        sett.deposit(amount);
 
-        // ibETH balance after
-        uint256 balanceAfter = bank.balanceOf(address(this));
+        // bBadger balance after
+        uint256 balanceAfter = sett.balanceOf(address(this));
         uint256 balanceDiff = balanceAfter.sub(balanceBefore);
         balances[to] = balances[to].add(balanceDiff);
     }
@@ -72,29 +74,27 @@ contract BadgerYieldSource is IYieldSource {
     /// @param redeemAmount The amount of yield-bearing tokens to be redeemed (ie. ether amount)
     /// @return The actual amount of tokens that were redeemed.
     function redeemToken(uint256 redeemAmount) external override returns (uint256) {
-        uint256 totalShares = bank.totalSupply();
-        uint256 bankETHBalance = bank.totalETH();
-        // ibETH shares = redeemedETHAmount * totalibETHSupply / bankETHBalance
-        uint256 requiredShares = redeemAmount.mul(totalShares).div(bankETHBalance);
+        uint256 totalShares = sett.totalSupply();
+        uint256 settBadgerBalance = sett.balance();
+        // ibETH shares = redeemedETHAmount * totalibETHSupply / settBadgerBalance
+        uint256 requiredShares = redeemAmount.mul(totalShares).div(settBadgerBalance);
 
         // balance before
-        uint256 bankBlanceBefore = bank.balanceOf(address(this));
-        uint256 wethBlanceBefore = WETH.balanceOf(address(this));
+        uint256 settBlanceBefore = sett.balanceOf(address(this));
+        uint256 badgerBlanceBefore = badger.balanceOf(address(this));
 
         // redeem ibETH and receive ETH
-        bank.withdraw(requiredShares);
-        // convert ETH to WETH
-        WETH.deposit{ value: address(this).balance }();
+        sett.withdraw(requiredShares);
 
         // balance after
-        uint256 bankBalanceAfter = bank.balanceOf(address(this));
-        uint256 wethBalanceAfter = WETH.balanceOf(address(this));
+        uint256 settBalanceAfter = sett.balanceOf(address(this));
+        uint256 badgerBalanceAfter = badger.balanceOf(address(this));
 
-        uint256 bankBalanceDiff = bankBlanceBefore.sub(bankBalanceAfter); // diff should be greater than 0
-        uint256 wethBalanceDiff = wethBalanceAfter.sub(wethBlanceBefore); // diff should be greater than 0
-        balances[msg.sender] = balances[msg.sender].sub(bankBalanceDiff);
+        uint256 settBalanceDiff = settBlanceBefore.sub(settBalanceAfter); // diff should be greater than 0
+        uint256 badgerBalanceDiff = badgerBalanceAfter.sub(badgerBlanceBefore); // diff should be greater than 0
+        balances[msg.sender] = balances[msg.sender].sub(settBalanceDiff);
 
-        require(WETH.transfer(msg.sender, wethBalanceDiff), "WETH_TRANSFER_FAIL");
-        return wethBalanceDiff;
+        badger.transfer(msg.sender, badgerBalanceDiff);
+        return badgerBalanceDiff;
     }
 }
