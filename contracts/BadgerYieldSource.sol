@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0
-/* solhint-disable var-name-mixedcase */
 pragma solidity ^0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
