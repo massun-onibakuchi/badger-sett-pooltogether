@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0
-/// @title Alpha Homora v1 Bank interface
-/// @dev Alpha Homora v1 Bank.sol 5
 pragma solidity ^0.7.6;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
@@ -19,7 +17,7 @@ interface ISett is IERC20Upgradeable {
     /// @notice Defines how much of the Setts' underlying can be borrowed by the Strategy for use
     /// @notice Custom logic in here for how much the vault allows to be borrowed
     /// @notice Sets minimum required on-hand to keep small withdrawals cheap
-    function available() external view virtual returns (uint256);
+    function available() external view returns (uint256);
 
     /// ===== public Actions =====
 
