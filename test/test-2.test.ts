@@ -25,34 +25,33 @@ describe("BadgerYieldSource", async function () {
     let controller: Controller;
     let strategyBadgerRewards: StrategyBadgerRewards;
     let geyser: StakingRewards;
-    const Badger = (await ethers.getContractFactory("ERC20Mock")) as ContractFactory;
-    const Sett = (await ethers.getContractFactory("Sett")) as ContractFactory;
-    const YieldSource = (await ethers.getContractFactory("BadgerYieldSource")) as ContractFactory;
-    const Controller = (await ethers.getContractFactory("Controller")) as ContractFactory;
-    const StrategyBadgerRewards = (await ethers.getContractFactory("StrategyBadgerRewards")) as ContractFactory;
-    const Geyser = (await ethers.getContractFactory("StakingRewards")) as ContractFactory;
+    const [Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser] = await Promise.all([
+        ethers.getContractFactory("ERC20Mock"),
+        ethers.getContractFactory("Sett"),
+        ethers.getContractFactory("BadgerYieldSource"),
+        ethers.getContractFactory("Controller"),
+        ethers.getContractFactory("StrategyBadgerRewards"),
+        ethers.getContractFactory("StakingRewards"),
+    ]);
+    before(async () => {
+        const Badger = (await ethers.getContractFactory("ERC20Mock")) as ContractFactory;
+        const Sett = (await ethers.getContractFactory("Sett")) as ContractFactory;
+        const YieldSource = (await ethers.getContractFactory("BadgerYieldSource")) as ContractFactory;
+        const Controller = (await ethers.getContractFactory("Controller")) as ContractFactory;
+        const StrategyBadgerRewards = (await ethers.getContractFactory("StrategyBadgerRewards")) as ContractFactory;
+        const Geyser = (await ethers.getContractFactory("StakingRewards")) as ContractFactory;
+    });
 
     beforeEach(async function () {
         badger = (await Badger.deploy("Badger", "BADGER")) as ERC20Mock;
         sett = (await Sett.deploy(overrides)) as Sett;
-        sett.initialize(
-            badger.address,
-            controller.address,
-            governance.address,
-            keeper.address,
-            guardian.address,
-            false,
-            "",
-            "",
-            overrides,
-        );
         controller = (await Controller.deploy()) as Controller;
         geyser = (await Geyser.deploy()) as StakingRewards;
         strategyBadgerRewards = (await StrategyBadgerRewards.deploy()) as StrategyBadgerRewards;
         yieldSource = (await YieldSource.deploy(sett.address, badger.address, overrides)) as BadgerYieldSource;
+
         const wantConfig = [badger.address, geyser.address] as [string, string];
         const feeConfig = [toWei("0"), toWei("0"), toWei("0")] as any;
-
         await geyser.initialize(admin.address, badger.address, badger.address);
         await strategyBadgerRewards.initialize(
             governance.address,
@@ -64,6 +63,17 @@ describe("BadgerYieldSource", async function () {
             feeConfig,
         );
         await controller.initialize(governance.address, strategist.address, keeper.address, reward.address);
+        sett.initialize(
+            badger.address,
+            controller.address,
+            governance.address,
+            keeper.address,
+            guardian.address,
+            false,
+            "",
+            "",
+            overrides,
+        );
         await sett.connect(governance).unpause();
         await sett.connect(governance).approveContractAccess(yieldSource.address);
 
