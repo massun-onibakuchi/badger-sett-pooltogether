@@ -3,14 +3,14 @@ pragma solidity ^0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./badger/ISett.sol";
+// import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "./interface/ISett.sol";
 import "./interface/IYieldSource.sol";
 import "hardhat/console.sol";
 
 contract BadgerYieldSource is IYieldSource {
     using SafeMath for uint256;
-    using SafeERC20 for IERC20;
+    // using SafeERC20 for IERC20;
 
     /// @dev ref to badger settt contract
     ISett public immutable sett;
@@ -50,13 +50,13 @@ contract BadgerYieldSource is IYieldSource {
     /// @notice Supplies asset tokens to the yield source.
     /// @param amount The amount of asset tokens to be supplied (ie. badger amount)
     function supplyTokenTo(uint256 amount, address to) external override {
-        badger.safeTransferFrom(msg.sender, address(this), amount);
-        badger.safeApprove(address(sett), amount);
+        badger.transferFrom(msg.sender, address(this), amount);
+        badger.approve(address(sett), amount);
 
         // bBadger balance before
         uint256 balanceBefore = sett.balanceOf(address(this));
 
-        // Deposit badger and receive bBadger
+        // Deposit badger and receive bBadger. Sett MUST approve this contract access by governance in advance
         sett.deposit(amount);
 
         // bBadger balance after
@@ -70,7 +70,7 @@ contract BadgerYieldSource is IYieldSource {
     /// @return The actual amount of tokens that were redeemed.
     function redeemToken(uint256 redeemAmount) external override returns (uint256) {
         uint256 totalShares = sett.totalSupply();
-        uint256 settBadgerBalance = sett.balance();
+        uint256 settBadgerBalance = sett.balance(); // sett + controller + ...
         // bBadger shares = redeemedbadgerAmount * totalShares / settBadgerBalance
         uint256 requiredShares = redeemAmount.mul(totalShares).div(settBadgerBalance);
 
@@ -89,7 +89,7 @@ contract BadgerYieldSource is IYieldSource {
         uint256 badgerBalanceDiff = badgerBalanceAfter.sub(badgerBlanceBefore); // diff should be greater than 0
         balances[msg.sender] = balances[msg.sender].sub(settBalanceDiff);
 
-        badger.safeTransfer(msg.sender, badgerBalanceDiff);
+        badger.transfer(msg.sender, badgerBalanceDiff);
         return badgerBalanceDiff;
     }
 }
