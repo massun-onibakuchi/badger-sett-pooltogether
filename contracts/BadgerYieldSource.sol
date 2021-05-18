@@ -3,17 +3,19 @@ pragma solidity ^0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./interface/ISett.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "./interface/ISettUpgradeable.sol";
 import "./interface/IYieldSource.sol";
 import "hardhat/console.sol";
 
 contract BadgerYieldSource is IYieldSource {
     using SafeMath for uint256;
-    // using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20;
 
-    /// @dev ref to badger settt contract
-    ISett public immutable sett;
+    uint256 private constant EXP_SCALE = 1e18;
+
+    /// @dev ref to badger sett (aka Vault)
+    ISettUpgradeable public immutable sett;
 
     /// @dev ref to badger contract.
     IERC20 public immutable badger;
@@ -21,7 +23,7 @@ contract BadgerYieldSource is IYieldSource {
     ///@dev bBadger token balances
     mapping(address => uint256) private balances;
 
-    constructor(ISett _sett, IERC20 _badger) {
+    constructor(ISettUpgradeable _sett, IERC20 _badger) {
         sett = _sett;
         badger = _badger;
     }
@@ -39,19 +41,20 @@ contract BadgerYieldSource is IYieldSource {
     function balanceOfToken(address addr) external view override returns (uint256) {
         uint256 shares = sett.balanceOf(address(this));
 
-        // console.log("addr's bBadger balance", balances[addr]);
-
         // price = underlyingTokenOwendByProtocol / totalShares
-        uint256 badgerBalance = shares.mul(sett.getPricePerFullShare()); // badger balance of this contract
-        // badgerBalance * addr's Shares / totalShares
-        return balances[addr].mul(badgerBalance).div(sett.totalSupply());
+        // badger balance of this contract
+        uint256 badgerBalance = shares.mul(sett.getPricePerFullShare()).div(EXP_SCALE);
+        console.log("Badger balance", badgerBalance);
+
+        // badgerBalance * addr's Shares / sourceShares
+        return balances[addr].mul(badgerBalance).div(shares);
     }
 
     /// @notice Supplies asset tokens to the yield source.
     /// @param amount The amount of asset tokens to be supplied (ie. badger amount)
     function supplyTokenTo(uint256 amount, address to) external override {
-        badger.transferFrom(msg.sender, address(this), amount);
-        badger.approve(address(sett), amount);
+        badger.safeTransferFrom(msg.sender, address(this), amount);
+        badger.safeApprove(address(sett), amount);
 
         // bBadger balance before
         uint256 balanceBefore = sett.balanceOf(address(this));
@@ -89,7 +92,7 @@ contract BadgerYieldSource is IYieldSource {
         uint256 badgerBalanceDiff = badgerBalanceAfter.sub(badgerBlanceBefore); // diff should be greater than 0
         balances[msg.sender] = balances[msg.sender].sub(settBalanceDiff);
 
-        badger.transfer(msg.sender, badgerBalanceDiff);
+        badger.safeTransfer(msg.sender, badgerBalanceDiff);
         return badgerBalanceDiff;
     }
 }
