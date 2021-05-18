@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.0 <0.7.0;
+
+pragma solidity ^0.6.11;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
-import "interfaces/uniswap/IUniswapRouterV2.sol";
-import "interfaces/badger/IBadgerGeyser.sol";
+import "../../interfaces/uniswap/IUniswapRouterV2.sol";
+import "../../interfaces/badger/IBadgerGeyser.sol";
 
-import "interfaces/curve/ICurveFi.sol";
-import "interfaces/curve/ICurveGauge.sol";
-import "interfaces/uniswap/IUniswapRouterV2.sol";
+import "../../interfaces/curve/ICurveFi.sol";
+import "../../interfaces/curve/ICurveGauge.sol";
+import "../../interfaces/uniswap/IUniswapRouterV2.sol";
 
-import "interfaces/badger/IController.sol";
-import "interfaces/badger/IMintr.sol";
-import "interfaces/badger/IStrategy.sol";
+import "../../interfaces/badger/IController.sol";
+import "../../interfaces/badger/IMintr.sol";
+import "../../interfaces/badger/IStrategy.sol";
 
-import "../BaseStrategy.sol";
-import "interfaces/badger/IStrategy.sol";
-import "interfaces/uniswap/IStakingRewards.sol";
+import "./BaseStrategy.sol";
+import "../../interfaces/badger/IStrategy.sol";
+import "../../interfaces/uniswap/IStakingRewards.sol";
 
 /*
     Strategy to compound badger rewards

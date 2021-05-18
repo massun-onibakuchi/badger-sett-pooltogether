@@ -1,4 +1,6 @@
-pragma solidity >=0.6.0 <0.7.0;
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.6.11;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
@@ -6,9 +8,9 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 
-import "interfaces/badger/IConverter.sol";
-import "interfaces/badger/IOneSplitAudit.sol";
-import "interfaces/badger/IStrategy.sol";
+import "../interfaces/badger/IConverter.sol";
+import "../interfaces/badger/IOneSplitAudit.sol";
+import "../interfaces/badger/IStrategy.sol";
 import "./SettAccessControl.sol";
 
 contract Controller is SettAccessControl {
