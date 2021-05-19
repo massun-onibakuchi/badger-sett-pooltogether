@@ -1,16 +1,26 @@
-const { ethers, waffle } = require("hardhat");
-const hre = require("hardhat");
-const { expect, assert, use } = require("chai");
-const { BigNumber } = ethers;
-const toWei = ethers.utils.parseEther;
-const AddressZero = ethers.constants.AddressZero;
+import hre from "hardhat";
+import { waffle, ethers } from "hardhat";
+import { expect, use } from "chai";
+import { deploy } from "./deploy";
+import { StakingRewards } from "../typechain/StakingRewards";
+import { StrategyBadgerRewards } from "../typechain/StrategyBadgerRewards";
+import { Sett } from "../typechain/Sett";
+import { ERC20Mock } from "../typechain/ERC20Mock";
+import { Controller } from "../typechain/controller";
+import { BadgerYieldSource } from "../typechain/BadgerYieldSource";
+import { PrizePool } from "../typechain/prizePool";
+import { RNGServiceMock } from "../typechain/RNGServiceMock";
+import { PoolWithMultipleWinnersBuilder } from "../typechain/PoolWithMultipleWinnersBuilder";
+
+import IYieldSource from "../artifacts/@pooltogether/yield-source-interface/contracts/IYieldSource.sol/IYieldSource.json";
+import MultipleWinners from "../artifacts/@pooltogether/pooltogether-contracts/contracts/prize-strategy/multiple-winners/MultipleWinners.sol/MultipleWinners.json";
 
 use(require("chai-bignumber")());
 
-const badgerAddress = "0x3472A5A71965499acd81997a54BBA8D852C6E53d";
-const settAddress = "0x19D97D8fA813EE2f51aD4B4e04EA08bAf4DFfC28";
-const exchangeWalletAddress = "0xD551234Ae421e3BCBA99A0Da6d736074f22192FF";
+const toWei = ethers.utils.parseEther;
+const AddressZero = ethers.constants.AddressZero;
 const overrides = { gasLimit: 9500000 };
+const amount = toWei("100");
 
 async function getEvents(contract, tx) {
     const receipt = await ethers.provider.getTransactionReceipt(tx.hash);
@@ -24,21 +34,23 @@ async function getEvents(contract, tx) {
 
 describe("BadgerYieldSource", async function () {
     const provider = waffle.provider;
-    const [wallet, other] = provider.getWallets();
-    let badger;
-    let sett;
-    let YieldSourceFactory;
-    let yieldSource;
-    let poolWithMultipleWinnersBuilder;
-    let prizePool;
+    const [wallet, other, keeper, strategist, governance, guardian, reward, admin] = provider.getWallets();
+
+    let badger: ERC20Mock;
+    let sett: Sett;
+    let yieldSource: BadgerYieldSource;
+    let controller: Controller;
+    let strategyBadgerRewards: StrategyBadgerRewards;
+    let geyser: StakingRewards;
+    let poolWithMultipleWinnersBuilder: PoolWithMultipleWinnersBuilder;
+    let prizePool: PrizePool;
+    let rngServiceMock: RNGServiceMock;
     let prizeStrategy;
-    let yieldSourcePrizePoolABI;
-    let multipleWinnersABI;
-    let rngServiceMock;
-    // eslint-disable-next-line no-undef
+    let yieldSourcePrizePoolABI: typeof IYieldSource.abi;
+    let multipleWinnersABI: typeof MultipleWinners.abi;
+    let Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser;
+
     before(async function () {
-        console.log("wallet.address :>> ", wallet.address);
-        console.log("other.address :>> ", other.address);
         // deploy all the pool together.
         const ControlledTokenProxyFactory = await ethers.getContractFactory("ControlledTokenProxyFactory");
         const controlledTokenProxyFactory = await ControlledTokenProxyFactory.deploy(overrides);
@@ -76,36 +88,64 @@ describe("BadgerYieldSource", async function () {
         const registry = await Registry.deploy(overrides);
 
         const PoolWithMultipleWinnersBuilder = await ethers.getContractFactory("PoolWithMultipleWinnersBuilder");
-        poolWithMultipleWinnersBuilder = await PoolWithMultipleWinnersBuilder.deploy(
+        poolWithMultipleWinnersBuilder = (await PoolWithMultipleWinnersBuilder.deploy(
             registry.address,
             compoundPrizePoolProxyFactory.address,
             yieldSourcePrizePoolProxyFactory.address,
             stakePrizePoolProxyFactory.address,
             multipleWinnersBuilder.address,
-            { gasLimit: 9500000 },
-        );
-        YieldSourceFactory = await ethers.getContractFactory("BadgerYieldSource", other);
-
-        // creat contract instance without manually downloading ABI
-        sett = await ethers.getVerifiedContractAt(settAddress);
-        badger = await ethers.getVerifiedContractAt(badgerAddress, other);
-
+            overrides,
+        )) as PoolWithMultipleWinnersBuilder;
         yieldSourcePrizePoolABI = (await hre.artifacts.readArtifact("YieldSourcePrizePool")).abi;
         multipleWinnersABI = (await hre.artifacts.readArtifact("MultipleWinners")).abi;
+
+        ({ Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser } = await deploy());
     });
 
-    // eslint-disable-next-line no-undef
     beforeEach(async function () {
-        yieldSource = await YieldSourceFactory.deploy(sett.address, badger.address, {
-            gasLimit: 9500000,
-        });
+        badger = (await Badger.deploy("Badger", "BADGER")) as ERC20Mock;
+        sett = (await Sett.deploy(overrides)) as Sett;
+        controller = (await Controller.deploy()) as Controller;
+        geyser = (await Geyser.deploy()) as StakingRewards;
+        strategyBadgerRewards = (await StrategyBadgerRewards.deploy()) as StrategyBadgerRewards;
+        yieldSource = (await YieldSource.deploy(sett.address, badger.address, overrides)) as BadgerYieldSource;
+
+        const wantConfig = [badger.address, geyser.address] as [string, string];
+        const feeConfig = [toWei("0"), toWei("0"), toWei("0")] as any;
+        // ----- initialize -----
+        await geyser.initialize(admin.address, badger.address, badger.address);
+        await strategyBadgerRewards.initialize(
+            governance.address,
+            strategist.address,
+            controller.address,
+            keeper.address,
+            guardian.address,
+            wantConfig,
+            feeConfig,
+        );
+        await controller.initialize(governance.address, strategist.address, keeper.address, reward.address);
+        // set Strategy
+        await controller.connect(governance).approveStrategy(badger.address, strategyBadgerRewards.address);
+        await controller.connect(governance).setStrategy(badger.address, strategyBadgerRewards.address);
+        sett.initialize(
+            badger.address,
+            controller.address,
+            governance.address,
+            keeper.address,
+            guardian.address,
+            false,
+            "",
+            "",
+            overrides,
+        );
+
         const yieldSourcePrizePoolConfig = {
             yieldSource: yieldSource.address,
             maxExitFeeMantissa: toWei("0.5"),
             maxTimelockDuration: 1000,
         };
         const RGNFactory = await ethers.getContractFactory("RNGServiceMock");
-        rngServiceMock = await RGNFactory.deploy({ gasLimit: 9500000 });
+        rngServiceMock = (await RGNFactory.deploy({ gasLimit: 9500000 })) as RNGServiceMock;
 
         const decimals = 9;
         const multipleWinnersConfig = {
@@ -121,7 +161,7 @@ describe("BadgerYieldSource", async function () {
             ticketCreditRateMantissa: toWei("0.1"),
             externalERC20Awards: [],
             numberOfWinners: 1,
-        };
+        } as any;
         const tx = await poolWithMultipleWinnersBuilder.createYieldSourceMultipleWinners(
             yieldSourcePrizePoolConfig,
             multipleWinnersConfig,
@@ -129,47 +169,36 @@ describe("BadgerYieldSource", async function () {
         );
         const events = await getEvents(poolWithMultipleWinnersBuilder, tx);
         const prizePoolCreatedEvent = events.find(e => e.name == "YieldSourcePrizePoolWithMultipleWinnersCreated");
-        if (typeof prizePoolCreatedEvent.args.prizePool != "string")
-            throw Error("YieldSourcePrizePoolWithMultipleWinnersCreated", prizePoolCreatedEvent.args);
 
-        prizePool = await ethers.getContractAt(yieldSourcePrizePoolABI, prizePoolCreatedEvent.args.prizePool, wallet);
+        prizePool = (await ethers.getContractAt(
+            yieldSourcePrizePoolABI,
+            prizePoolCreatedEvent.args.prizePool,
+            wallet,
+        )) as PrizePool;
         prizeStrategy = await ethers.getContractAt(
             multipleWinnersABI,
             prizePoolCreatedEvent.args.prizeStrategy,
             wallet,
         );
 
-        // get some badger
-        await badger.transfer(wallet.address, BigNumber.from(100).mul(BigNumber.from(10).pow(18)));
+        // activate Vault(aka sett)
+        await sett.connect(governance).unpause();
+        await sett.connect(governance).approveContractAccess(yieldSource.address);
+
+        await badger.mint(wallet.address, amount);
+        await badger.mint(other.address, amount);
+        await badger.mint(geyser.address, amount.mul("10"));
     });
 
-    // eslint-disable-next-line no-undef
     it("get token address", async function () {
-        expect((await yieldSource.depositToken()) == badger);
+        expect(await yieldSource.depositToken()).to.equal(badger.address);
     });
 
     it("should return the underlying balance", async function () {
-        await badger.connect(wallet).approve(prizePool.address, toWei("100"));
+        await badger.connect(wallet).approve(prizePool.address, amount);
         const [tokenAddress] = await prizePool.tokens();
-        console.log("tokenAdderss :>> ", tokenAddress);
-        await prizePool.depositTo(wallet.address, toWei("100"), tokenAddress, other.address);
-        const balance = await sett.balanceOf(yieldSource.address);
-        assert.isTrue(balance.gt(toWei("0")));
+        await prizePool.depositTo(wallet.address, amount, tokenAddress, other.address);
+
+        expect(await sett.balanceOf(yieldSource.address)).to.eq(amount);
     });
-
-    // it("should be able to withdraw instantly", async function () {
-    //     await badger.connect(wallet).approve(prizePool.address, toWei("100"));
-    //     const [tokenAddress] = await prizePool.tokens();
-
-    //     await prizePool.depositTo(wallet.address, toWei("100"), tokenAddress, other.address);
-    //     const balanceBefore = await badger.balanceOf(wallet.address);
-    //     await prizePool.withdrawInstantlyFrom(
-    //         wallet.address,
-    //         toWei("1"),
-    //         tokenAddress,
-    //         1000, //The maximum exit fee the caller is willing to pay.
-    //     );
-    //     const balanceAfter = await badger.balanceOf(wallet.address);
-    //     assert.isTrue(balanceAfter.gt(balanceBefore));
-    // });
 });

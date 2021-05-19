@@ -1,6 +1,6 @@
 import { waffle, ethers } from "hardhat";
 import { expect, use } from "chai";
-
+import { deploy } from "./deploy";
 import { StakingRewards } from "../typechain/StakingRewards";
 import { StrategyBadgerRewards } from "../typechain/StrategyBadgerRewards";
 import { Sett } from "../typechain/Sett";
@@ -24,17 +24,6 @@ describe("BadgerYieldSource", async function () {
     let controller: Controller;
     let strategyBadgerRewards: StrategyBadgerRewards;
     let geyser: StakingRewards;
-    const deploy = async () => {
-        const [Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser] = await Promise.all([
-            ethers.getContractFactory("ERC20Mock"),
-            ethers.getContractFactory("Sett"),
-            ethers.getContractFactory("BadgerYieldSource"),
-            ethers.getContractFactory("Controller"),
-            ethers.getContractFactory("StrategyBadgerRewards"),
-            ethers.getContractFactory("StakingRewards"),
-        ]);
-        return { Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser };
-    };
     let Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser;
     before(async () => {
         ({ Badger, Sett, YieldSource, Controller, StrategyBadgerRewards, Geyser } = await deploy());
