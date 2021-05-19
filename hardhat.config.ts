@@ -49,6 +49,7 @@ const config: HardhatUserConfig = {
             // accounts: [privateKey1, privateKey2]
             accounts: {
                 mnemonic: MNEMONIC,
+                // path: "m/44'/60'/0'/0/0",
                 initialIndex: 0,
                 count: 10,
             },
