@@ -10,7 +10,8 @@ import "hardhat-dependency-compiler";
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 const BLOCK_NUMBER = process.env.BLOCK_NUMBER || "12068742";
-const PROJECT_ID = "";
+const PROJECT_ID = process.env.PROJECT_ID;
+const MNEMONIC = process.env.MNEMONIC;
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -42,15 +43,16 @@ const config: HardhatUserConfig = {
                 enabled: true,
             },
         },
-        // rinkeby: {
-        // url: "https://rinkeby.infura.io/v3/" + PROJECT_ID,
-        // // accounts: [privateKey1, privateKey2]
-        // accounts: {
-        //   mnemonic:"",
-        //   path:"",
-        //   initialIndex:0,
-        //   count:10
-        // }
+        ropsten: {
+            url: `https://eth-ropsten.alchemyapi.io/v2/O52IVElOb_z9i-QDw4HAtAmoqm8NFvnr`,
+            // `https://ropsten.infura.io/v3/${PROJECT_ID}`
+            // accounts: [privateKey1, privateKey2]
+            accounts: {
+                mnemonic: MNEMONIC,
+                initialIndex: 0,
+                count: 10,
+            },
+        },
         // https://hardhat.org/config/#hd-wallet-config
     },
     dependencyCompiler: {
