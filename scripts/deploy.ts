@@ -50,6 +50,7 @@ const main = async () => {
     console.log("sett.address :>> ", sett.address);
     console.log("controller.address :>> ", controller.address);
     console.log("geyser.address :>> ", geyser.address);
+    console.log("strategyBadgerRewards.address :>> ", strategyBadgerRewards.address);
     console.log("yieldSource.address :>> ", yieldSource.address);
 
     // ----- initialize -----
