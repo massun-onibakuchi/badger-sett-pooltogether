@@ -1,5 +1,5 @@
 import hre from "hardhat";
-import { waffle, ethers } from "hardhat";
+import { ethers } from "hardhat";
 import { StakingRewards } from "../typechain/StakingRewards";
 import { StrategyBadgerRewards } from "../typechain/StrategyBadgerRewards";
 import { Sett } from "../typechain/Sett";
@@ -53,7 +53,7 @@ const main = async () => {
     console.log("yieldSource.address :>> ", yieldSource.address);
 
     // ----- initialize -----
-    await geyser.initialize(admin.address, badger.address, badger.address);
+    await geyser.initialize(admin.address, badger.address, badger.address, overrides);
     await strategyBadgerRewards.initialize(
         governance.address,
         strategist.address,
@@ -62,12 +62,13 @@ const main = async () => {
         guardian.address,
         wantConfig,
         feeConfig,
+        overrides,
     );
-    await controller.initialize(governance.address, strategist.address, keeper.address, reward.address);
+    await controller.initialize(governance.address, strategist.address, keeper.address, reward.address, overrides);
 
     // set Strategy
-    await controller.connect(governance).approveStrategy(badger.address, strategyBadgerRewards.address);
-    await controller.connect(governance).setStrategy(badger.address, strategyBadgerRewards.address);
+    await controller.connect(governance).approveStrategy(badger.address, strategyBadgerRewards.address, overrides);
+    await controller.connect(governance).setStrategy(badger.address, strategyBadgerRewards.address, overrides);
     sett.initialize(
         badger.address,
         controller.address,

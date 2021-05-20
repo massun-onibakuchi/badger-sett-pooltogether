@@ -26,6 +26,7 @@ Create a `.env` file in the root directory of your project.
 ```
 ETHERSCAN_API_KEY=
 ALCHEMY_API_KEY=
+RINKEYBY_ALCHEMY_API_KEY=
 ```
 
 You will get the first one from [Etherscan](https://etherscan.io/).
@@ -42,3 +43,7 @@ You will get the second one from [Alchemy](https://dashboard.alchemyapi.io/).
 ## Test
 
 `yarn test`
+
+## Local Deployment
+
+`npx hardhat run --network hardhat scripts/deploy.ts`
